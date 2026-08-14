@@ -1219,24 +1219,25 @@
             currentSobrante = 0;
         });
 
-        // Inicialización global al cargar
-        window.onload = () => {
-            // 1. CARGA INMEDIATA DE LA INTERFAZ VISUAL
-            setDynamicGreeting();
-            updateClocks();
-            setInterval(updateClocks, 60000);
-            createBlips();
-            
-            // 2. INICIAR CONEXIÓN CON LA NUBE (En segundo plano)
-            // Usamos setTimeout para no bloquear el renderizado visual inicial
-            setTimeout(() => {
-                initAuth().catch(e => {
-                    console.error("Fallo crítico en inicio de base de datos:", e);
-                    initLocalFallback();
-                    updateSyncStatus(false);
-                });
-            }, 500);
-        };
+        // ==========================================
+        // INICIALIZACIÓN GLOBAL INMEDIATA
+        // ==========================================
+        
+        // 1. CARGA DE LA INTERFAZ VISUAL SIN ESPERAS
+        setDynamicGreeting();
+        updateClocks();
+        setInterval(updateClocks, 60000);
+        createBlips();
+        
+        // 2. INICIAR CONEXIÓN CON LA NUBE DE FONDO
+        setTimeout(() => {
+            initAuth().catch(e => {
+                console.error("Fallo crítico en inicio de base de datos:", e);
+                initLocalFallback();
+                updateSyncStatus(false);
+            });
+        }, 500);
+
     </script>
 </body>
 </html>
