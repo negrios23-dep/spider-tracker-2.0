@@ -577,13 +577,17 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInWithCustomToken, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, query, onSnapshot, addDoc, updateDoc, deleteDoc, doc, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, collection, query, onSnapshot, addDoc, updateDoc, deleteDoc, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Configuración automática proveída por el entorno
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'spider-tracker-local';
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
-            // Un entorno falso para que no explote si se corre fuera de la plataforma
-            apiKey: "dummy", projectId: "dummy" 
+        // === CONFIGURACIÓN FIREBASE REAL ===
+        const appId = 'spider-tracker-oficial'; 
+        const firebaseConfig = {
+            apiKey: "AIzaSyCyjZXnPcxNqYMPiOyzn9b9jhc5nd4FodE",
+            authDomain: "spidertracker2.firebaseapp.com",
+            projectId: "spidertracker2",
+            storageBucket: "spidertracker2.firebasestorage.app",
+            messagingSenderId: "1002322218727",
+            appId: "1:1002322218727:web:b0cc0b618b7b77c1bd5c42"
         };
 
         const app = initializeApp(firebaseConfig);
@@ -596,13 +600,16 @@
         const syncText = document.getElementById('sync-text');
         const syncDot = document.getElementById('sync-dot');
 
+        let isOnline = false;
+
         function updateSyncStatus(connected) {
+            isOnline = connected;
             if (connected) {
                 syncText.innerText = 'ONLINE';
                 syncText.style.color = 'var(--btn-green)';
                 syncDot.classList.add('connected');
             } else {
-                syncText.innerText = 'OFFLINE';
+                syncText.innerText = 'OFFLINE (LOCAL)';
                 syncText.style.color = 'var(--btn-orange)';
                 syncDot.classList.remove('connected');
             }
@@ -610,25 +617,44 @@
 
         async function initAuth() {
             try {
-                if (typeof __initial_auth_token !== 'undefined') {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(auth);
-                }
+                await signInAnonymously(auth);
                 currentUser = auth.currentUser;
                 updateSyncStatus(true);
-                console.log("Sistema conectado a la red. Usuario ID:", currentUser.uid);
-                
-                // Una vez conectados, empezamos a escuchar cambios
-                initRealtimeListeners();
+                console.log("Sistema conectado a la red.");
+                initRealtimeListeners(); // Empieza a escuchar los cambios en vivo
             } catch (error) {
-                console.error("Error al conectar con la red:", error);
+                console.warn("No se pudo conectar a la nube. Cambiando a almacenamiento local.", error);
                 updateSyncStatus(false);
-                alert("Atención Logístico: Error al conectar con la red satelital.");
+                initLocalFallback();
             }
         }
 
-        // Listas locales para guardar los datos descargados
+        function initLocalFallback() {
+            loadLocalData();
+            if(!currentUser) currentUser = { uid: 'local-user' };
+            checkDailyTasks();
+        }
+
+        function loadLocalData() {
+            const savedTasks = localStorage.getItem('spider_tareas');
+            if (savedTasks) tareasCloud = JSON.parse(savedTasks);
+            renderTasks();
+
+            const savedNotes = localStorage.getItem('spider_notas');
+            if (savedNotes) notasCloud = JSON.parse(savedNotes);
+            renderNotes();
+
+            const savedSalaries = localStorage.getItem('spider_sueldos');
+            if (savedSalaries) sueldosCloud = JSON.parse(savedSalaries);
+            renderPersonalSalaries();
+        }
+
+        function saveLocalData(type) {
+            if(type === 'tareas') localStorage.setItem('spider_tareas', JSON.stringify(tareasCloud));
+            if(type === 'notas') localStorage.setItem('spider_notas', JSON.stringify(notasCloud));
+            if(type === 'sueldos') localStorage.setItem('spider_sueldos', JSON.stringify(sueldosCloud));
+        }
+
         let tareasCloud = [];
         let notasCloud = [];
         let sueldosCloud = [];
@@ -636,91 +662,144 @@
         function initRealtimeListeners() {
             if (!currentUser) return;
             
-            const uid = currentUser.uid;
+            // Usamos una ruta compartida "public/data" para que sincronice 
+            // perfectamente entre tu PC y tu Celular.
             
-            // Referencias a las colecciones privadas del usuario (RULE 1)
-            const tareasRef = collection(db, 'artifacts', appId, 'users', uid, 'tareas');
-            const notasRef = collection(db, 'artifacts', appId, 'users', uid, 'notas');
-            const sueldosRef = collection(db, 'artifacts', appId, 'users', uid, 'sueldos');
-
-            // 1. Escuchar TAREAS
-            onSnapshot(query(tareasRef), (snapshot) => {
+            // 1. Escuchar Tareas en vivo
+            const tareasRef = collection(db, 'artifacts', appId, 'public', 'data', 'tareas');
+            onSnapshot(tareasRef, (snapshot) => {
                 tareasCloud = [];
-                snapshot.forEach((doc) => {
-                    tareasCloud.push({ id: doc.id, ...doc.data() });
+                snapshot.forEach((docSnap) => {
+                    tareasCloud.push({ id: docSnap.id, ...docSnap.data() });
                 });
                 renderTasks();
-            }, (error) => console.error("Error sync tareas:", error));
+            }, (error) => console.error("Error tareas:", error));
 
-            // 2. Escuchar NOTAS
-            onSnapshot(query(notasRef), (snapshot) => {
+            // 2. Escuchar Notas en vivo
+            const notasRef = collection(db, 'artifacts', appId, 'public', 'data', 'notas');
+            onSnapshot(notasRef, (snapshot) => {
                 notasCloud = [];
-                snapshot.forEach((doc) => {
-                    notasCloud.push({ id: doc.id, ...doc.data() });
+                snapshot.forEach((docSnap) => {
+                    notasCloud.push({ id: docSnap.id, ...docSnap.data() });
                 });
                 renderNotes();
-            }, (error) => console.error("Error sync notas:", error));
+            }, (error) => console.error("Error notas:", error));
 
-            // 3. Escuchar SUELDOS
-            onSnapshot(query(sueldosRef), (snapshot) => {
+            // 3. Escuchar Sueldos en vivo
+            const sueldosRef = collection(db, 'artifacts', appId, 'public', 'data', 'sueldos');
+            onSnapshot(sueldosRef, (snapshot) => {
                 sueldosCloud = [];
-                snapshot.forEach((doc) => {
-                    sueldosCloud.push({ id: doc.id, ...doc.data() });
+                snapshot.forEach((docSnap) => {
+                    sueldosCloud.push({ id: docSnap.id, ...docSnap.data() });
                 });
                 renderPersonalSalaries();
-            }, (error) => console.error("Error sync sueldos:", error));
-            
-            // Chequear tareas diarias tras inicializar
-            checkDailyTasks(uid);
+            }, (error) => console.error("Error sueldos:", error));
+
+            checkDailyTasks();
         }
 
-        // --- FUNCIONES CLOUD ---
+        // --- FUNCIONES CLOUD / LOCAL MIXTAS ---
 
-        // TAREAS CLOUD
+        // TAREAS
         async function addCloudTask(text) {
-            if (!currentUser) return;
-            const ref = collection(db, 'artifacts', appId, 'users', currentUser.uid, 'tareas');
-            await addDoc(ref, { text: text, completed: false, createdAt: Date.now() });
+            if (isOnline) {
+                const ref = collection(db, 'artifacts', appId, 'public', 'data', 'tareas');
+                await addDoc(ref, { text: text, completed: false, createdAt: Date.now() });
+            } else {
+                tareasCloud.push({ id: 'local_' + Date.now(), text: text, completed: false, createdAt: Date.now() });
+                saveLocalData('tareas'); renderTasks();
+            }
         }
         
         async function toggleCloudTask(taskId, currentState) {
-            if (!currentUser) return;
-            const docRef = doc(db, 'artifacts', appId, 'users', currentUser.uid, 'tareas', taskId);
-            await updateDoc(docRef, { completed: !currentState });
+            if (isOnline && !taskId.startsWith('local_')) {
+                const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'tareas', taskId);
+                await updateDoc(docRef, { completed: !currentState });
+            } else {
+                const task = tareasCloud.find(t => t.id === taskId);
+                if(task) { task.completed = !currentState; saveLocalData('tareas'); renderTasks(); }
+            }
         }
 
         async function deleteCloudTask(taskId) {
-            if (!currentUser) return;
-            const docRef = doc(db, 'artifacts', appId, 'users', currentUser.uid, 'tareas', taskId);
-            await deleteDoc(docRef);
+            if (isOnline && !taskId.startsWith('local_')) {
+                const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'tareas', taskId);
+                await deleteDoc(docRef);
+            } else {
+                tareasCloud = tareasCloud.filter(t => t.id !== taskId);
+                saveLocalData('tareas'); renderTasks();
+            }
         }
 
-        // NOTAS CLOUD
+        // NOTAS
         async function addCloudNote(text) {
-             if (!currentUser) return;
-             const ref = collection(db, 'artifacts', appId, 'users', currentUser.uid, 'notas');
-             await addDoc(ref, { text: text, createdAt: Date.now() });
+             if (isOnline) {
+                 const ref = collection(db, 'artifacts', appId, 'public', 'data', 'notas');
+                 await addDoc(ref, { text: text, createdAt: Date.now() });
+             } else {
+                 notasCloud.push({ id: 'local_' + Date.now(), text: text, createdAt: Date.now() });
+                 saveLocalData('notas'); renderNotes();
+             }
         }
 
         async function deleteCloudNote(noteId) {
-            if (!currentUser) return;
-            const docRef = doc(db, 'artifacts', appId, 'users', currentUser.uid, 'notas', noteId);
-            await deleteDoc(docRef);
+            if (isOnline && !noteId.startsWith('local_')) {
+                const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'notas', noteId);
+                await deleteDoc(docRef);
+            } else {
+                 notasCloud = notasCloud.filter(n => n.id !== noteId);
+                 saveLocalData('notas'); renderNotes();
+            }
         }
 
-        // SUELDOS CLOUD
+        // SUELDOS
         async function saveCloudSalary(salaryData) {
-            if (!currentUser) return;
-            const ref = collection(db, 'artifacts', appId, 'users', currentUser.uid, 'sueldos');
-            await addDoc(ref, { ...salaryData, createdAt: Date.now() });
+            if (isOnline) {
+                const ref = collection(db, 'artifacts', appId, 'public', 'data', 'sueldos');
+                await addDoc(ref, { ...salaryData, createdAt: Date.now() });
+            } else {
+                sueldosCloud.push({ id: 'local_' + Date.now(), ...salaryData, createdAt: Date.now() });
+                saveLocalData('sueldos'); renderPersonalSalaries();
+            }
         }
 
         async function deleteCloudSalary(salaryId) {
-             if (!currentUser) return;
-             const docRef = doc(db, 'artifacts', appId, 'users', currentUser.uid, 'sueldos', salaryId);
-             await deleteDoc(docRef);
+             if (isOnline && !salaryId.startsWith('local_')) {
+                 const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'sueldos', salaryId);
+                 await deleteDoc(docRef);
+             } else {
+                 sueldosCloud = sueldosCloud.filter(s => s.id !== salaryId);
+                 saveLocalData('sueldos'); renderPersonalSalaries();
+             }
         }
 
+        // Rutina diaria
+        async function checkDailyTasks() {
+            const today = new Date().toDateString();
+            
+            if(isOnline) {
+                const dateDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'metadata', 'last_daily_tasks');
+                try {
+                    const dateSnap = await getDoc(dateDocRef);
+                    let lastDate = dateSnap.exists() ? dateSnap.data().date : "";
+
+                    if (today !== lastDate) {
+                        const defaultTasks = ["CONTROLAR FALTANTES DEL DIA SIGUIENTE", "HACER SEGUIMIENTO", "TOMAR AGUA", "LEER BIBLIA"];
+                        for(const text of defaultTasks){ await addCloudTask(text); }
+                        await setDoc(dateDocRef, { date: today });
+                    }
+                } catch(e) {
+                    console.error("Error chequeando rutina diaria", e);
+                }
+            } else {
+                let lastDate = localStorage.getItem('spider_last_daily_date') || "";
+                if(today !== lastDate) {
+                     const defaultTasks = ["CONTROLAR FALTANTES DEL DIA SIGUIENTE", "HACER SEGUIMIENTO", "TOMAR AGUA", "LEER BIBLIA"];
+                    for(const text of defaultTasks){ await addCloudTask(text); }
+                    localStorage.setItem('spider_last_daily_date', today);
+                }
+            }
+        }
 
         // ============================================================================
         // LÓGICA DE UI Y COMPONENTES (Lo que ya funcionaba)
@@ -836,38 +915,57 @@
         // Rutina diaria
         async function checkDailyTasks(uid) {
             const today = new Date().toDateString();
-            // Usamos un doc especial en Firestore para guardar el último día que se ejecutó esto
-            const dateDocRef = doc(db, 'artifacts', appId, 'users', uid, 'metadata', 'last_daily_tasks');
             
-            try {
-                // Obtener registro anterior usando imports nativos
-                const { getDoc } = await import("https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js");
-                const dateSnap = await getDoc(dateDocRef);
-                let lastDate = "";
+            if(isOnline && uid !== 'local-user') {
+                // Usamos un doc especial en Firestore para guardar el último día que se ejecutó esto
+                const dateDocRef = doc(db, 'artifacts', appId, 'users', uid, 'metadata', 'last_daily_tasks');
                 
-                if (dateSnap.exists()) {
-                    lastDate = dateSnap.data().date;
-                }
+                try {
+                    // Obtener registro anterior usando imports nativos
+                    const { getDoc } = await import("https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js");
+                    const dateSnap = await getDoc(dateDocRef);
+                    let lastDate = "";
+                    
+                    if (dateSnap.exists()) {
+                        lastDate = dateSnap.data().date;
+                    }
 
-                if (today !== lastDate) {
-                    // Es un día nuevo, inyectar tareas a Firestore
-                    const defaultTasks = [
+                    if (today !== lastDate) {
+                        // Es un día nuevo, inyectar tareas a Firestore
+                        const defaultTasks = [
+                            "CONTROLAR FALTANTES DEL DIA SIGUIENTE",
+                            "HACER SEGUIMIENTO",
+                            "TOMAR AGUA",
+                            "LEER BIBLIA"
+                        ];
+                        
+                        // Add sequentially to keep order
+                        for(const text of defaultTasks){
+                            await addCloudTask(text);
+                        }
+                        
+                        // Update last date
+                        await setDoc(dateDocRef, { date: today });
+                    }
+                } catch(e) {
+                    console.error("Error chequeando rutina diaria", e);
+                }
+            } else {
+                // Lógica de rutina diaria para localStorage (Offline fallback)
+                let lastDate = localStorage.getItem('spider_last_daily_date') || "";
+                if(today !== lastDate) {
+                     const defaultTasks = [
                         "CONTROLAR FALTANTES DEL DIA SIGUIENTE",
                         "HACER SEGUIMIENTO",
                         "TOMAR AGUA",
                         "LEER BIBLIA"
                     ];
                     
-                    // Add sequentially to keep order
                     for(const text of defaultTasks){
                         await addCloudTask(text);
                     }
-                    
-                    // Update last date
-                    await setDoc(dateDocRef, { date: today });
+                    localStorage.setItem('spider_last_daily_date', today);
                 }
-            } catch(e) {
-                console.error("Error chequeando rutina diaria", e);
             }
         }
 
