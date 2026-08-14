@@ -1,0 +1,1136 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spider-Tracker Logístico</title>
+    <!-- Cargamos una fuente pixelada para dar el aspecto retro -->
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root {
+            --case-blue: #6ab0da; /* Azul claro de la carcasa */
+            --case-shadow: #4a85a8;
+            --screen-bg: #0b1021; /* Fondo oscuro de la pantalla */
+            --btn-orange: #f28b50;
+            --btn-orange-shadow: #b3592a;
+            --btn-green: #6bc28c;
+            --btn-green-shadow: #3f8b5e;
+            --btn-red: #e04444;
+            --btn-red-shadow: #992323;
+            --text-color: #2b2b2b;
+        }
+
+        body {
+            background-color: #1a1a2e; /* Fondo general fuera del tracker */
+            font-family: 'Press Start 2P', cursive; /* Fuente pixel art */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .tracker-case {
+            background-color: var(--case-blue);
+            border-radius: 12px;
+            padding: 20px 20px 40px 20px;
+            box-shadow: 
+                inset -5px -5px 0px 0px rgba(0,0,0,0.1), /* Sombra interior */
+                inset 5px 5px 0px 0px rgba(255,255,255,0.3), /* Brillo interior */
+                10px 10px 20px rgba(0,0,0,0.5); /* Sombra exterior */
+            position: relative;
+            max-width: 600px;
+            width: 100%;
+            border: 4px solid var(--case-shadow);
+        }
+
+        .screen-area {
+            background-color: var(--screen-bg);
+            border: 6px solid #d0e4f2; /* Borde interior de la pantalla */
+            border-radius: 8px;
+            height: 350px;
+            position: relative;
+            overflow-y: auto; /* Permite scroll vertical completo en la pantalla */
+            overflow-x: hidden;
+            margin-bottom: 20px;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.8);
+            /* Patrón de cuadrícula punteada retro */
+            background-image: radial-gradient(#202b4d 2px, transparent 2px);
+            background-size: 15px 15px;
+        }
+
+        /* Estilo de la barra de desplazamiento para toda la pantalla principal */
+        .screen-area::-webkit-scrollbar { width: 8px; }
+        .screen-area::-webkit-scrollbar-track { background: #0b1021; }
+        .screen-area::-webkit-scrollbar-thumb { background: var(--btn-orange); border: 2px solid black; }
+
+        .screen-header {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: white;
+            font-size: 10px;
+            z-index: 5;
+        }
+
+        .spider-icon-top {
+            background-color: var(--btn-red);
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: 3px solid black;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            z-index: 10;
+        }
+
+        .spider-icon-top::after {
+            content: '🕷';
+            font-size: 20px;
+        }
+
+        .notification-box {
+            background-color: var(--btn-orange);
+            border: 3px solid black;
+            border-radius: 8px;
+            padding: 10px;
+            color: black;
+            font-size: 10px;
+            text-align: center;
+            position: absolute;
+            top: 55px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 85%;
+            z-index: 5;
+            box-shadow: 2px 2px 0px black;
+        }
+
+        .center-radar {
+            position: absolute;
+            top: 55%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 50px;
+            height: 50px;
+            background-color: var(--btn-red);
+            border-radius: 50%;
+            border: 3px solid black;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 0 15px var(--btn-red);
+            animation: pulse 2s infinite;
+        }
+        
+        .center-radar::after {
+            content: '🕷';
+            font-size: 24px;
+        }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(224, 68, 68, 0.7); }
+            70% { box-shadow: 0 0 0 20px rgba(224, 68, 68, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(224, 68, 68, 0); }
+        }
+
+        .blip {
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            background-color: #a0c4ff;
+            border-radius: 2px;
+            opacity: 0.8;
+            box-shadow: 0 0 5px #a0c4ff;
+        }
+
+        .control-panel {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            padding: 10px;
+        }
+
+        .btn-col {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .pixel-btn {
+            font-family: 'Press Start 2P', cursive;
+            font-size: 8px;
+            padding: 8px 12px;
+            border: 3px solid black;
+            border-radius: 6px;
+            text-transform: uppercase;
+            cursor: pointer;
+            box-shadow: 0 4px 0 var(--shadow-color, black);
+            transition: all 0.1s;
+            text-align: center;
+            user-select: none;
+        }
+
+        .pixel-btn:active {
+            transform: translateY(4px);
+            box-shadow: 0 0 0 black;
+        }
+
+        .btn-green { background-color: var(--btn-green); --shadow-color: var(--btn-green-shadow); }
+        .btn-orange { background-color: var(--btn-orange); --shadow-color: var(--btn-orange-shadow); }
+        .btn-red { background-color: var(--btn-red); --shadow-color: var(--btn-red-shadow); color: white;}
+
+        .tasks-view {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: var(--screen-bg);
+            z-index: 20;
+            padding: 15px;
+            box-sizing: border-box;
+            display: none;
+            flex-direction: column;
+            background-image: radial-gradient(#202b4d 2px, transparent 2px);
+            background-size: 15px 15px;
+            overflow-y: auto;
+        }
+
+        .tasks-header {
+            color: var(--btn-orange);
+            text-align: center;
+            margin-top: 5px;
+            margin-bottom: 15px;
+            font-size: 12px;
+            text-shadow: 2px 2px 0px black;
+        }
+
+        .task-input-container {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .retro-input {
+            flex: 1;
+            background-color: #000;
+            color: #00ff00;
+            border: 2px solid var(--case-blue);
+            font-family: 'Press Start 2P', cursive;
+            font-size: 8px;
+            padding: 10px;
+            outline: none;
+            box-shadow: inset 2px 2px 5px rgba(0,0,0,0.8);
+        }
+        .retro-input::placeholder { color: #005500; }
+
+        .retro-textarea {
+            flex: 1;
+            background-color: #000;
+            color: #00ff00;
+            border: 2px solid var(--case-blue);
+            font-family: 'Press Start 2P', cursive;
+            font-size: 8px;
+            padding: 10px;
+            outline: none;
+            box-shadow: inset 2px 2px 5px rgba(0,0,0,0.8);
+            resize: none;
+            line-height: 1.5;
+            min-height: 120px;
+        }
+        .retro-textarea::placeholder { color: #005500; }
+        
+        .task-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            overflow-y: auto;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .task-list::-webkit-scrollbar, .tasks-view::-webkit-scrollbar, .screen-area::-webkit-scrollbar { 
+            width: 8px; 
+        }
+        .task-list::-webkit-scrollbar-track, .tasks-view::-webkit-scrollbar-track, .screen-area::-webkit-scrollbar-track { 
+            background: #000; 
+            border-left: 2px solid var(--case-blue); 
+        }
+        .task-list::-webkit-scrollbar-thumb, .tasks-view::-webkit-scrollbar-thumb, .screen-area::-webkit-scrollbar-thumb { 
+            background: var(--btn-orange); 
+            border: 2px solid black; 
+        }
+
+        .task-item {
+            background-color: rgba(0, 0, 0, 0.7);
+            border: 2px solid var(--btn-green);
+            padding: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: white;
+            font-size: 8px;
+            line-height: 1.4;
+        }
+
+        .task-item.completed span {
+            text-decoration: line-through;
+            color: var(--btn-green);
+            opacity: 0.7;
+        }
+
+        .task-actions {
+            display: flex;
+            gap: 5px;
+        }
+
+        .btn-small {
+            font-size: 8px;
+            padding: 8px 10px;
+            border-radius: 4px;
+            border: 2px solid black;
+        }
+
+        /* --- ESTILOS PARA SUELDOS PERSONAL --- */
+        .salary-form {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-bottom: 10px;
+            background-color: rgba(0,0,0,0.6);
+            padding: 10px;
+            border: 2px dashed var(--case-blue);
+        }
+
+        .salary-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .salary-label {
+            color: #00ff00;
+            font-size: 8px;
+            width: 40%;
+        }
+
+        .salary-input {
+            width: 55%;
+            background-color: #000;
+            color: #fff;
+            border: 1px solid var(--case-blue);
+            font-family: 'Press Start 2P', cursive;
+            font-size: 8px;
+            padding: 5px;
+            text-align: right;
+        }
+
+        .salary-total {
+            color: var(--btn-orange);
+            font-size: 10px;
+            text-align: right;
+            margin-top: 5px;
+            text-shadow: 1px 1px 0px black;
+        }
+
+        .salary-item {
+            background-color: rgba(0, 0, 0, 0.7);
+            border-left: 4px solid var(--btn-orange);
+            padding: 8px;
+            margin-bottom: 5px;
+            color: white;
+            font-size: 7px;
+            line-height: 1.4;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .salary-item-details {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+        }
+
+        .side-tabs {
+            position: absolute;
+            left: -25px;
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .side-tab {
+            background-color: var(--btn-red);
+            color: black;
+            border: 3px solid black;
+            border-radius: 5px 0 0 5px;
+            padding: 10px 5px;
+            font-size: 10px;
+            text-align: center;
+            box-shadow: -2px 2px 0 var(--btn-red-shadow);
+            cursor: pointer;
+        }
+
+        /* Estilo pixel art para el logo corporativo */
+        .pixel-logo-card {
+            background: rgba(11, 16, 33, 0.95);
+            border: 3px solid var(--btn-orange);
+            border-radius: 8px;
+            padding: 12px;
+            text-align: center;
+            box-shadow: 0 0 15px rgba(242, 139, 80, 0.4);
+            margin-bottom: 10px;
+        }
+        .pixel-logo-badge {
+            background-color: #0b1021;
+            border: 2px solid var(--case-blue);
+            display: inline-block;
+            padding: 6px 10px;
+            margin-bottom: 8px;
+            color: var(--btn-orange);
+            font-size: 8px;
+            letter-spacing: 1px;
+            box-shadow: 2px 2px 0px black;
+        }
+
+        /* Indicador de Sincronización Nube */
+        .sync-status {
+            position: absolute;
+            top: 5px;
+            right: 10px;
+            font-size: 6px;
+            color: var(--btn-orange);
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            z-index: 30;
+        }
+        .sync-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background-color: var(--btn-red);
+        }
+        .sync-dot.connected {
+            background-color: var(--btn-green);
+            box-shadow: 0 0 5px var(--btn-green);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="tracker-case relative">
+        
+        <div class="sync-status">
+            <span id="sync-text">OFFLINE</span>
+            <div id="sync-dot" class="sync-dot"></div>
+        </div>
+
+        <!-- Pestañas Laterales -->
+        <div class="side-tabs">
+            <div class="side-tab">O</div>
+            <div class="side-tab">S</div>
+            <div class="side-tab">T</div>
+        </div>
+
+        <div class="screen-area" id="radar-screen">
+            <!-- Cabecera de la pantalla (Relojes) -->
+            <div class="screen-header">
+                <span id="time-left">00:00</span>
+                <div class="spider-icon-top"></div>
+                <span id="time-right">00:00</span>
+            </div>
+
+            <!-- Caja de Mensaje (Saludo Dinámico) -->
+            <div class="notification-box" id="message-box">
+                INICIANDO SISTEMA...
+            </div>
+
+            <!-- El Spider-Tracker Central -->
+            <div class="center-radar" id="center-radar-element"></div>
+
+            <!-- Blips generados por JS -->
+            
+            <!-- VISTA DE TAREAS -->
+            <div class="tasks-view" id="tasks-view">
+                <h2 class="tasks-header">REGISTRO TAREAS</h2>
+                <div class="task-input-container">
+                    <input type="text" id="new-task-input" class="retro-input" placeholder="NUEVO OBJETIVO..." autocomplete="off">
+                    <button id="btn-add-task" class="pixel-btn btn-orange btn-small">ADD</button>
+                </div>
+                <ul class="task-list" id="task-list">
+                    <li style="color: #00ff00; font-size: 8px; text-align: center;">Sincronizando nube...</li>
+                </ul>
+                <div style="display: flex; justify-content: flex-end; margin-top: 10px; padding-bottom: 15px;">
+                    <button id="btn-back-radar" class="pixel-btn btn-red btn-small">CERRAR</button>
+                </div>
+            </div>
+
+            <!-- VISTA DE NOTAS -->
+            <div class="tasks-view" id="notes-view">
+                <h2 class="tasks-header">REGISTRO NOTAS</h2>
+                <div class="task-input-container">
+                    <input type="text" id="new-note-input" class="retro-input" placeholder="NUEVA NOTA..." autocomplete="off">
+                    <button id="btn-add-note" class="pixel-btn btn-orange btn-small">ADD</button>
+                </div>
+                <ul class="task-list" id="notes-list">
+                     <li style="color: #00ff00; font-size: 8px; text-align: center;">Sincronizando nube...</li>
+                </ul>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px; padding-bottom: 15px;">
+                    <span id="notes-status" style="color: var(--btn-green); font-size: 8px; text-shadow: 1px 1px 0px black;"></span>
+                    <button id="btn-back-radar-notas" class="pixel-btn btn-red btn-small">CERRAR</button>
+                </div>
+            </div>
+
+            <!-- VISTA DE SUELDOS (PERSONAL) -->
+            <div class="tasks-view" id="salary-view">
+                <h2 class="tasks-header">ANALIZIS SUELDOS</h2>
+                
+                <div id="sec-personal" style="display: flex; flex-direction: column; padding-bottom: 20px;">
+                    <div class="salary-form">
+                        <div class="salary-row">
+                            <span class="salary-label">MES/AÑO:</span>
+                            <input type="text" id="per-month" class="salary-input" placeholder="EJ: AGO 2026" autocomplete="off">
+                        </div>
+                        <div class="salary-row">
+                            <span class="salary-label">INGRESO($):</span>
+                            <input type="number" id="per-income" class="salary-input" placeholder="0" autocomplete="off">
+                        </div>
+                        
+                        <div style="border-top: 1px dashed var(--case-blue); padding-top: 5px; margin-top: 5px;">
+                            <span style="color: var(--btn-orange); font-size: 7px; display: block; margin-bottom: 3px;">DETALLE DE GASTOS:</span>
+                            <div style="display: flex; gap: 5px; margin-bottom: 5px;">
+                                <input type="text" id="exp-desc" class="retro-input" placeholder="CONCEPTO (EJ: ALQUILER)" style="font-size: 7px; padding: 6px;">
+                                <input type="number" id="exp-amount" class="salary-input" placeholder="$" style="width: 35%; font-size: 7px;">
+                                <button id="btn-add-expense-item" class="pixel-btn btn-orange btn-small" style="padding: 6px 8px;">+</button>
+                            </div>
+                            <ul id="expense-items-list" style="list-style: none; padding: 0; margin: 0; max-height: 80px; overflow-y: auto; font-size: 7px;"></ul>
+                        </div>
+
+                        <div class="salary-total" id="per-total-display" style="margin-top: 8px;">SOBRANTE: $0</div>
+                        
+                        <div style="display: flex; justify-content: space-between; margin-top: 5px;">
+                            <button id="btn-calc-personal" class="pixel-btn btn-orange btn-small">CALCULAR</button>
+                            <button id="btn-save-personal" class="pixel-btn btn-green btn-small">GUARDAR MES</button>
+                        </div>
+                    </div>
+                    <ul class="task-list" id="personal-list" style="margin-top: 5px; max-height: 150px; overflow-y: auto;">
+                        <li style="color: #00ff00; font-size: 8px; text-align: center;">Sincronizando nube...</li>
+                    </ul>
+                </div>
+                
+                <div style="display: flex; justify-content: flex-end; margin-top: 10px; padding-bottom: 15px;">
+                    <button id="btn-back-radar-sueldos" class="pixel-btn btn-red btn-small">CERRAR</button>
+                </div>
+            </div>
+
+            <!-- VISTA DE INICIAR (TELEMETRÍA Y PERFIL) -->
+            <div class="tasks-view" id="telemetry-view">
+                <h2 class="tasks-header">ESTADO DE FLOTA</h2>
+                
+                <div class="pixel-logo-card">
+                    <div class="pixel-logo-badge">LOGÍSTICA DEL ESTERO</div>
+                    <div style="color: #6ab0da; font-size: 7px; margin-bottom: 4px;">Quimilí - Sgo. del Estero</div>
+                    <div style="color: #ffffff; font-size: 8px; margin-top: 6px; font-weight: bold; animation: pulse 2s infinite;">🗺️ RED DE TRANSPORTE ACTIVA</div>
+                </div>
+
+                <div style="background: rgba(0,0,0,0.7); border: 2px solid var(--btn-green); padding: 10px; margin-bottom: 10px; font-size: 8px; line-height: 1.5; color: white; box-shadow: inset 0 0 10px rgba(107, 194, 140, 0.2);">
+                    <div style="color: var(--btn-orange); margin-bottom: 6px; font-weight: bold; border-bottom: 1px dashed var(--btn-green); padding-bottom: 4px;">👨‍✈️ CREDENCIAL DE LOGÍSTICA:</div>
+                    <div style="color: #00ff00; margin-bottom: 4px;">NOMBRE: CISTERNA LISANDRO GABRIEL</div>
+                    <div id="company-time-display" style="margin-top: 6px; color: var(--btn-green);"></div>
+                </div>
+
+                <div style="display: flex; justify-content: flex-end; margin-top: 10px; padding-bottom: 15px;">
+                    <button id="btn-back-radar-telemetry" class="pixel-btn btn-red btn-small">CERRAR</button>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Botones físicos inferiores -->
+        <div class="control-panel">
+            <div class="btn-col" style="justify-content: space-between; flex: 1; max-width: 200px;">
+                <button class="pixel-btn btn-green" id="btn-menu-tareas">TAREAS</button>
+                <button class="pixel-btn btn-green" id="btn-menu-notas">NOTAS</button>
+                <button class="pixel-btn btn-green" id="btn-menu-sueldos">SUELDOS</button>
+            </div>
+            
+            <div class="btn-col" style="justify-content: flex-end;">
+                <button class="pixel-btn btn-red" id="btn-start" style="padding: 15px 20px;">INICIAR</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInWithCustomToken, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, query, onSnapshot, addDoc, updateDoc, deleteDoc, doc, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Configuración automática proveída por el entorno
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'spider-tracker-local';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
+            // Un entorno falso para que no explote si se corre fuera de la plataforma
+            apiKey: "dummy", projectId: "dummy" 
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+        
+        let currentUser = null;
+
+        // Elementos de UI para el estado de sincronización
+        const syncText = document.getElementById('sync-text');
+        const syncDot = document.getElementById('sync-dot');
+
+        function updateSyncStatus(connected) {
+            if (connected) {
+                syncText.innerText = 'ONLINE';
+                syncText.style.color = 'var(--btn-green)';
+                syncDot.classList.add('connected');
+            } else {
+                syncText.innerText = 'OFFLINE';
+                syncText.style.color = 'var(--btn-orange)';
+                syncDot.classList.remove('connected');
+            }
+        }
+
+        async function initAuth() {
+            try {
+                if (typeof __initial_auth_token !== 'undefined') {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+                currentUser = auth.currentUser;
+                updateSyncStatus(true);
+                console.log("Sistema conectado a la red. Usuario ID:", currentUser.uid);
+                
+                // Una vez conectados, empezamos a escuchar cambios
+                initRealtimeListeners();
+            } catch (error) {
+                console.error("Error al conectar con la red:", error);
+                updateSyncStatus(false);
+                alert("Atención Logístico: Error al conectar con la red satelital.");
+            }
+        }
+
+        // Listas locales para guardar los datos descargados
+        let tareasCloud = [];
+        let notasCloud = [];
+        let sueldosCloud = [];
+
+        function initRealtimeListeners() {
+            if (!currentUser) return;
+            
+            const uid = currentUser.uid;
+            
+            // Referencias a las colecciones privadas del usuario (RULE 1)
+            const tareasRef = collection(db, 'artifacts', appId, 'users', uid, 'tareas');
+            const notasRef = collection(db, 'artifacts', appId, 'users', uid, 'notas');
+            const sueldosRef = collection(db, 'artifacts', appId, 'users', uid, 'sueldos');
+
+            // 1. Escuchar TAREAS
+            onSnapshot(query(tareasRef), (snapshot) => {
+                tareasCloud = [];
+                snapshot.forEach((doc) => {
+                    tareasCloud.push({ id: doc.id, ...doc.data() });
+                });
+                renderTasks();
+            }, (error) => console.error("Error sync tareas:", error));
+
+            // 2. Escuchar NOTAS
+            onSnapshot(query(notasRef), (snapshot) => {
+                notasCloud = [];
+                snapshot.forEach((doc) => {
+                    notasCloud.push({ id: doc.id, ...doc.data() });
+                });
+                renderNotes();
+            }, (error) => console.error("Error sync notas:", error));
+
+            // 3. Escuchar SUELDOS
+            onSnapshot(query(sueldosRef), (snapshot) => {
+                sueldosCloud = [];
+                snapshot.forEach((doc) => {
+                    sueldosCloud.push({ id: doc.id, ...doc.data() });
+                });
+                renderPersonalSalaries();
+            }, (error) => console.error("Error sync sueldos:", error));
+            
+            // Chequear tareas diarias tras inicializar
+            checkDailyTasks(uid);
+        }
+
+        // --- FUNCIONES CLOUD ---
+
+        // TAREAS CLOUD
+        async function addCloudTask(text) {
+            if (!currentUser) return;
+            const ref = collection(db, 'artifacts', appId, 'users', currentUser.uid, 'tareas');
+            await addDoc(ref, { text: text, completed: false, createdAt: Date.now() });
+        }
+        
+        async function toggleCloudTask(taskId, currentState) {
+            if (!currentUser) return;
+            const docRef = doc(db, 'artifacts', appId, 'users', currentUser.uid, 'tareas', taskId);
+            await updateDoc(docRef, { completed: !currentState });
+        }
+
+        async function deleteCloudTask(taskId) {
+            if (!currentUser) return;
+            const docRef = doc(db, 'artifacts', appId, 'users', currentUser.uid, 'tareas', taskId);
+            await deleteDoc(docRef);
+        }
+
+        // NOTAS CLOUD
+        async function addCloudNote(text) {
+             if (!currentUser) return;
+             const ref = collection(db, 'artifacts', appId, 'users', currentUser.uid, 'notas');
+             await addDoc(ref, { text: text, createdAt: Date.now() });
+        }
+
+        async function deleteCloudNote(noteId) {
+            if (!currentUser) return;
+            const docRef = doc(db, 'artifacts', appId, 'users', currentUser.uid, 'notas', noteId);
+            await deleteDoc(docRef);
+        }
+
+        // SUELDOS CLOUD
+        async function saveCloudSalary(salaryData) {
+            if (!currentUser) return;
+            const ref = collection(db, 'artifacts', appId, 'users', currentUser.uid, 'sueldos');
+            await addDoc(ref, { ...salaryData, createdAt: Date.now() });
+        }
+
+        async function deleteCloudSalary(salaryId) {
+             if (!currentUser) return;
+             const docRef = doc(db, 'artifacts', appId, 'users', currentUser.uid, 'sueldos', salaryId);
+             await deleteDoc(docRef);
+        }
+
+
+        // ============================================================================
+        // LÓGICA DE UI Y COMPONENTES (Lo que ya funcionaba)
+        // ============================================================================
+        
+        function setDynamicGreeting() {
+            const currentHour = new Date().getHours();
+            const messageBox = document.getElementById('message-box');
+            let greetingText = "";
+
+            if (currentHour >= 5 && currentHour < 13) {
+                greetingText = "¡BUENOS DIAS LOGISTICO! <br> ¿ESTA LISTO PARA ARRANCAR?";
+            } else {
+                greetingText = "¡BUENAS TARDES GABI! <br> ¿SEGUIMOS TRABAJANDO?";
+            }
+
+            messageBox.innerHTML = "";
+            let i = 0;
+            const plainText = greetingText.replace(/<br>/g, '\n'); 
+            
+            function typeWriter() {
+                if (i < plainText.length) {
+                    if(plainText.charAt(i) === '\n'){
+                        messageBox.innerHTML += "<br>";
+                    } else {
+                        messageBox.innerHTML += plainText.charAt(i);
+                    }
+                    i++;
+                    setTimeout(typeWriter, 50);
+                }
+            }
+            setTimeout(typeWriter, 800); 
+        }
+
+        function updateClocks() {
+            const now = new Date();
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            document.getElementById('time-left').innerText = `${hours}:${minutes}`;
+            document.getElementById('time-right').innerText = `${hours}:${minutes}`;
+        }
+
+        function createBlips() {
+            const screen = document.getElementById('radar-screen');
+            const numBlips = 12;
+
+            for (let i = 0; i < numBlips; i++) {
+                const blip = document.createElement('div');
+                blip.classList.add('blip');
+                blip.style.left = Math.random() * 95 + '%';
+                blip.style.top = Math.random() * 95 + '%';
+                blip.style.opacity = Math.random() * 0.5 + 0.3;
+                if(Math.random() > 0.8) {
+                    blip.style.width = '12px';
+                    blip.style.height = '12px';
+                }
+                screen.appendChild(blip);
+            }
+        }
+
+        function calculateCompanyTime() {
+            const startDate = new Date(2026, 0, 2); 
+            const now = new Date();
+            let diffTime = now - startDate;
+            if (diffTime < 0) diffTime = 0;
+
+            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+            const months = Math.floor(diffDays / 30);
+            const days = diffDays % 30;
+
+            const displayEl = document.getElementById('company-time-display');
+            displayEl.innerHTML = `INGRESO A LA EMPRESA:<br>02 ENE 2026<br><br>⏳ TIEMPO ACTIVO:<br>~${months} MESES Y ${days} DÍAS (${diffDays} DÍAS TOTALES)`;
+        }
+
+        const telemetryView = document.getElementById('telemetry-view');
+        const btnStart = document.getElementById('btn-start');
+        const btnBackTelemetry = document.getElementById('btn-back-radar-telemetry');
+
+        btnStart.addEventListener('click', function() {
+            const messageBox = document.getElementById('message-box');
+            const radarScreen = document.getElementById('radar-screen');
+            
+            messageBox.innerHTML = "ESTABLECIENDO ENLACE<br>CON LA FLOTA...";
+            messageBox.style.backgroundColor = "var(--btn-orange)";
+            radarScreen.style.boxShadow = "inset 0 0 25px var(--btn-green)";
+
+            setTimeout(() => {
+                messageBox.innerHTML = "¡SEÑALES ESTABILIZADAS!<br>CARGANDO PERFIL...";
+                messageBox.style.backgroundColor = "var(--btn-green)";
+                
+                calculateCompanyTime();
+                telemetryView.style.display = 'flex';
+
+                setTimeout(() => {
+                    radarScreen.style.boxShadow = "inset 0 0 10px rgba(0,0,0,0.8)";
+                }, 1500);
+            }, 1000);
+        });
+
+        btnBackTelemetry.addEventListener('click', () => { telemetryView.style.display = 'none'; });
+
+        // --- GESTIÓN DE TAREAS ---
+        const tasksView = document.getElementById('tasks-view');
+        const btnMenuTareas = document.getElementById('btn-menu-tareas');
+        const btnBackRadar = document.getElementById('btn-back-radar');
+        const btnAddTask = document.getElementById('btn-add-task');
+        const newTaskInput = document.getElementById('new-task-input');
+        const taskList = document.getElementById('task-list');
+
+        btnMenuTareas.addEventListener('click', () => { tasksView.style.display = 'flex'; });
+        btnBackRadar.addEventListener('click', () => { tasksView.style.display = 'none'; });
+
+        // Rutina diaria
+        async function checkDailyTasks(uid) {
+            const today = new Date().toDateString();
+            // Usamos un doc especial en Firestore para guardar el último día que se ejecutó esto
+            const dateDocRef = doc(db, 'artifacts', appId, 'users', uid, 'metadata', 'last_daily_tasks');
+            
+            try {
+                // Obtener registro anterior usando imports nativos
+                const { getDoc } = await import("https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js");
+                const dateSnap = await getDoc(dateDocRef);
+                let lastDate = "";
+                
+                if (dateSnap.exists()) {
+                    lastDate = dateSnap.data().date;
+                }
+
+                if (today !== lastDate) {
+                    // Es un día nuevo, inyectar tareas a Firestore
+                    const defaultTasks = [
+                        "CONTROLAR FALTANTES DEL DIA SIGUIENTE",
+                        "HACER SEGUIMIENTO",
+                        "TOMAR AGUA",
+                        "LEER BIBLIA"
+                    ];
+                    
+                    // Add sequentially to keep order
+                    for(const text of defaultTasks){
+                        await addCloudTask(text);
+                    }
+                    
+                    // Update last date
+                    await setDoc(dateDocRef, { date: today });
+                }
+            } catch(e) {
+                console.error("Error chequeando rutina diaria", e);
+            }
+        }
+
+        function renderTasks() {
+            taskList.innerHTML = '';
+            if (tareasCloud.length === 0) {
+                 taskList.innerHTML = '<li style="color: #666; font-size: 8px; text-align: center;">NO HAY OBJETIVOS PENDIENTES.</li>';
+                 return;
+            }
+
+            // Ordenamos por fecha de creación ascendente
+            tareasCloud.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+
+            tareasCloud.forEach(task => {
+                const li = document.createElement('li');
+                li.className = 'task-item';
+                if (task.completed) li.classList.add('completed');
+                
+                li.innerHTML = `
+                    <span>${task.text}</span>
+                    <div class="task-actions">
+                        <button class="pixel-btn btn-green btn-small btn-complete">V</button>
+                        <button class="pixel-btn btn-red btn-small btn-delete">X</button>
+                    </div>
+                `;
+                
+                li.querySelector('.btn-complete').addEventListener('click', () => {
+                    toggleCloudTask(task.id, task.completed);
+                });
+
+                li.querySelector('.btn-delete').addEventListener('click', () => {
+                    deleteCloudTask(task.id);
+                });
+
+                taskList.appendChild(li);
+            });
+            taskList.scrollTop = taskList.scrollHeight;
+        }
+
+        btnAddTask.addEventListener('click', () => {
+            const text = newTaskInput.value.trim().toUpperCase();
+            if (text) {
+                addCloudTask(text);
+                newTaskInput.value = '';
+            }
+        });
+        newTaskInput.addEventListener('keypress', (e) => { 
+            if (e.key === 'Enter') {
+                const text = newTaskInput.value.trim().toUpperCase();
+                if (text) { addCloudTask(text); newTaskInput.value = ''; }
+            } 
+        });
+
+        // --- GESTIÓN DE NOTAS MÚLTIPLES ---
+        const notesView = document.getElementById('notes-view');
+        const btnMenuNotas = document.getElementById('btn-menu-notas');
+        const btnBackRadarNotas = document.getElementById('btn-back-radar-notas');
+        const btnAddNote = document.getElementById('btn-add-note');
+        const newNoteInput = document.getElementById('new-note-input');
+        const notesList = document.getElementById('notes-list');
+
+        btnMenuNotas.addEventListener('click', () => { notesView.style.display = 'flex'; });
+        btnBackRadarNotas.addEventListener('click', () => { notesView.style.display = 'none'; });
+
+        function renderNotes() {
+            notesList.innerHTML = '';
+            if (notasCloud.length === 0) {
+                 notesList.innerHTML = '<li style="color: #666; font-size: 8px; text-align: center;">MEMORIA LIMPIA. NO HAY NOTAS.</li>';
+                 return;
+            }
+
+            notasCloud.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+
+            notasCloud.forEach(note => {
+                const li = document.createElement('li');
+                li.className = 'task-item';
+                li.innerHTML = `
+                    <span>${note.text}</span>
+                    <div class="task-actions">
+                        <button class="pixel-btn btn-red btn-small btn-del-note">X</button>
+                    </div>
+                `;
+                li.querySelector('.btn-del-note').addEventListener('click', () => {
+                    deleteCloudNote(note.id);
+                });
+                notesList.appendChild(li);
+            });
+            notesList.scrollTop = notesList.scrollHeight;
+        }
+
+        btnAddNote.addEventListener('click', () => {
+            const text = newNoteInput.value.trim().toUpperCase();
+            if (text) {
+                addCloudNote(text);
+                newNoteInput.value = '';
+            }
+        });
+        newNoteInput.addEventListener('keypress', (e) => { 
+            if (e.key === 'Enter') {
+                const text = newNoteInput.value.trim().toUpperCase();
+                if (text) { addCloudNote(text); newNoteInput.value = ''; }
+            } 
+        });
+
+        // --- GESTIÓN DE SUELDOS PERSONAL ---
+        const salaryView = document.getElementById('salary-view');
+        const btnMenuSueldos = document.getElementById('btn-menu-sueldos');
+        const btnBackRadarSueldos = document.getElementById('btn-back-radar-sueldos');
+        const perMonth = document.getElementById('per-month');
+        const perIncome = document.getElementById('per-income');
+        const perTotalDisplay = document.getElementById('per-total-display');
+        const btnCalcPersonal = document.getElementById('btn-calc-personal');
+        const btnSavePersonal = document.getElementById('btn-save-personal');
+        const personalList = document.getElementById('personal-list');
+
+        let currentSobrante = 0;
+        let currentExpenseItems = [];
+        let perExpenseVal = 0;
+
+        const expDesc = document.getElementById('exp-desc');
+        const expAmount = document.getElementById('exp-amount');
+        const btnAddExpenseItem = document.getElementById('btn-add-expense-item');
+        const expenseItemsList = document.getElementById('expense-items-list');
+
+        btnMenuSueldos.addEventListener('click', () => { salaryView.style.display = 'flex'; });
+        btnBackRadarSueldos.addEventListener('click', () => { salaryView.style.display = 'none'; });
+
+        function renderExpenseItems() {
+            expenseItemsList.innerHTML = '';
+            let totalExpenses = 0;
+
+            currentExpenseItems.forEach((item, index) => {
+                totalExpenses += item.amount;
+                const li = document.createElement('li');
+                li.style.cssText = "display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.4); padding: 3px 5px; margin-bottom: 2px; color: white;";
+                li.innerHTML = `
+                    <span>${item.desc}: $${item.amount}</span>
+                    <button class="pixel-btn btn-red btn-small" style="padding: 2px 4px; font-size: 6px;" onclick="window.removeExpenseItem(${index})">X</button>
+                `;
+                expenseItemsList.appendChild(li);
+            });
+            perExpenseVal = totalExpenses;
+        }
+
+        window.removeExpenseItem = function(index) {
+            currentExpenseItems.splice(index, 1);
+            renderExpenseItems();
+            calculatePersonalTotal();
+        };
+
+        function calculatePersonalTotal() {
+            const income = parseFloat(perIncome.value) || 0;
+            currentSobrante = income - perExpenseVal;
+            
+            if (currentSobrante < 0) {
+                perTotalDisplay.style.color = "var(--btn-red)";
+            } else {
+                perTotalDisplay.style.color = "var(--btn-orange)";
+            }
+            perTotalDisplay.innerText = `SOBRANTE: $${currentSobrante}`;
+        }
+
+        perIncome.addEventListener('input', calculatePersonalTotal);
+        btnCalcPersonal.addEventListener('click', calculatePersonalTotal);
+
+        btnAddExpenseItem.addEventListener('click', () => {
+            const desc = expDesc.value.trim().toUpperCase();
+            const amount = parseFloat(expAmount.value) || 0;
+
+            if (desc !== '' && amount > 0) {
+                currentExpenseItems.push({ desc, amount });
+                expDesc.value = '';
+                expAmount.value = '';
+                renderExpenseItems();
+                calculatePersonalTotal();
+            }
+        });
+
+        function renderPersonalSalaries() {
+            personalList.innerHTML = '';
+            
+            if(sueldosCloud.length === 0){
+                 personalList.innerHTML = '<li style="color: #666; font-size: 8px; text-align: center;">NO HAY REGISTROS ALMACENADOS.</li>';
+                 return;
+            }
+
+            // Orden descendente (más nuevo arriba)
+            sueldosCloud.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+
+            sueldosCloud.forEach(sal => {
+                const li = document.createElement('li');
+                li.className = 'salary-item';
+                const sobranteColor = sal.sobrante >= 0 ? "var(--btn-orange)" : "var(--btn-red)";
+
+                let detailsHtml = '';
+                if(sal.expensesList && sal.expensesList.length > 0) {
+                    detailsHtml = sal.expensesList.map(e => `${e.desc}: $${e.amount}`).join(' | ');
+                } else {
+                    detailsHtml = `GASTOS TOTALES: $${sal.expense}`;
+                }
+
+                li.innerHTML = `
+                    <div class="salary-item-details">
+                        <span style="color: var(--btn-green); font-size: 8px;">${sal.month} (ING: $${sal.income})</span>
+                        <span style="font-size: 6px; color: #aaa;">${detailsHtml}</span>
+                        <span style="color: ${sobranteColor};">SOBRANTE: $${sal.sobrante}</span>
+                    </div>
+                    <button class="pixel-btn btn-red btn-small btn-del-per" style="padding: 5px;">X</button>
+                `;
+                
+                li.querySelector('.btn-del-per').addEventListener('click', () => {
+                    deleteCloudSalary(sal.id);
+                });
+
+                personalList.appendChild(li);
+            });
+        }
+
+        btnSavePersonal.addEventListener('click', () => {
+            if(perMonth.value.trim() === '') {
+                // Custom modal UI replacement for alert
+                const msgBox = document.getElementById('message-box');
+                const oldColor = msgBox.style.backgroundColor;
+                msgBox.innerHTML = "ERROR: DEBE INGRESAR UN MES.";
+                msgBox.style.backgroundColor = "var(--btn-red)";
+                setTimeout(() => {
+                     setDynamicGreeting();
+                     msgBox.style.backgroundColor = oldColor;
+                }, 3000);
+                return;
+            }
+            calculatePersonalTotal();
+
+            const newRecord = {
+                month: perMonth.value.toUpperCase(),
+                income: parseFloat(perIncome.value) || 0,
+                expense: perExpenseVal,
+                expensesList: [...currentExpenseItems],
+                sobrante: currentSobrante
+            };
+
+            saveCloudSalary(newRecord);
+            
+            // Reset form
+            perMonth.value = '';
+            perIncome.value = '';
+            currentExpenseItems = [];
+            renderExpenseItems();
+            perTotalDisplay.innerText = 'SOBRANTE: $0';
+            perTotalDisplay.style.color = "var(--btn-orange)";
+            currentSobrante = 0;
+        });
+
+        // Inicialización global al cargar
+        window.onload = () => {
+            setDynamicGreeting();
+            updateClocks();
+            setInterval(updateClocks, 60000);
+            createBlips();
+            
+            // Iniciar conexión con la nube
+            initAuth();
+        };
+    </script>
+</body>
+</html>
